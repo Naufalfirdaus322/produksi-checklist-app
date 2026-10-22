@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ea580c">
+  <title>Sistem Checklist & Operasional Produksi - PT Berkat Cahaya Novena</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-logo">BCN</div>
+        <div class="brand-text">
+          <h1>PT. BERKAT CAHAYA NOVENA</h1>
+          <p>Sistem Checklist Harian & Kontrol Operasional Produksi (Gedung 1)</p>
+        </div>
+      </div>
+
+      <div class="status-controls">
+        <div id="live-clock" class="clock-display">Memuat jam...</div>
+
+        <!-- Online / Offline Badge with click-to-simulate -->
+        <div id="network-badge" class="status-badge status-online" onclick="toggleSimulatedOffline()" title="Klik untuk menguji mode offline">
+          <span style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+          Online (Real-time Sync)
+        </div>
+
+        <!-- Sync Queue Pill -->
+        <div id="sync-queue-pill" class="sync-queue-pill" style="display:none;">
+          <span>☁️</span> Semua Data Tersinkron
+        </div>
+
+        <!-- Notifications Bell -->
+        <button id="notif-bell" class="notif-bell-btn" onclick="toggleNotificationDropdown()" title="Pusat Pengingat & Notifikasi">
+          <span>🔔</span>
+          <span id="notif-badge" class="notif-badge-count" style="display:none;">0</span>
+        </button>
+
+        <!-- Notification Dropdown -->
+        <div id="notif-dropdown" class="notif-dropdown">
+          <div class="notif-header">
+            <span>Pusat Notifikasi & Pengingat</span>
+            <span style="font-size:0.75rem; color:#ea580c; cursor:pointer;" onclick="triggerTestReminder('chime')">Uji Suara</span>
+          </div>
+          <div id="notif-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Bar Tabs -->
+  <nav class="nav-tabs no-print">
+    <div class="nav-container">
+      <button class="nav-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        <span>📊</span> Dasbor Analitik
+      </button>
+      <button class="nav-tab" data-tab="input" onclick="switchTab('input')">
+        <span>📝</span> Input Checklist Harian
+      </button>
+      <button class="nav-tab" data-tab="matrix" onclick="switchTab('matrix')">
+        <span>📑</span> Format SOP Resmi (Bulanan)
+      </button>
+      <button class="nav-tab" data-tab="corrective" onclick="switchTab('corrective')">
+        <span>⚠️</span> Log Tindakan Korektif
+      </button>
+      <button class="nav-tab" data-tab="settings" onclick="switchTab('settings')">
+        <span>⏰</span> Pengingat & Pengaturan
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Application Content -->
+  <main class="main-content">
+    
+    <!-- TAB 1: DASBOR ANALITIK -->
+    <section id="tab-dashboard" class="tab-pane active">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Dasbor Pemantauan Performa Operasional Harian</h2>
+          <p class="section-desc">Ringkasan kepatuhan checklist, sanitasi kebersihan, dan kesehatan peralatan produksi secara real-time.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-outline btn-sm" onclick="renderDashboard()">
+            <span>🔄</span> Segarkan Data
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('input')">
+            <span>+</span> Isi Checklist Sekarang
+          </button>
+        </div>
+      </div>
+
+      <div id="dashboard-content">
+        <!-- Rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- TAB 2: INPUT CHECKLIST HARIAN -->
+    <section id="tab-input" class="tab-pane">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Formulir Pemeriksaan Kebersihan & Kondisi Peralatan</h2>
+          <p class="section-desc">Pengisian cepat oleh operator produksi. Mendukung penyimpanan offline dan sinkronisasi otomatis.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="markAllItemsOk()">
+            <span>✨</span> Tandai Semua Bersih & Berfungsi (√)
+          </button>
+        </div>
+      </div>
+
+      <!-- Room, Date, Shift Filter Selectors -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label class="filter-label" for="input-room-select">Pilih Ruang Produksi</label>
+          <select id="input-room-select" class="form-select" onchange="state.currentRoomId = this.value; renderChecklistInputForm();">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label" for="input-shift-select">Shift Operasional</label>
+          <select id="input-shift-select" class="form-select" onchange="state.currentShift = this.value;">
+            <option value="Shift 1">Shift 1 (Pagi: 07:00 - 15:00)</option>
+            <option value="Shift 2">Shift 2 (Siang: 15:00 - 23:00)</option>
+            <option value="Shift 3">Shift 3 (Malam: 23:00 - 07:00)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label" for="input-date">Tanggal Pengecekan</label>
+          <input type="date" id="input-date" class="form-input" value="">
+        </div>
+      </div>
+
+      <!-- Document Metadata Header Badge (Matches SOP Template Header) -->
+      <div class="room-doc-badge">
+        <div>
+          <strong id="input-doc-title" style="font-size:0.95rem; color:#9a3412;">RUANG PENGAYAKAN GEDUNG 1 (PRODUKSI)</strong>
+          <div style="font-size:0.75rem; color:#7c2d12; margin-top:2px;">Standard Operating Procedure & Cleaning Program Check List</div>
+        </div>
+        <div class="doc-info">
+          <div class="doc-meta">Kode Dokumen: <strong id="input-doc-code">FR/PRD/004/003</strong></div>
+          <div class="doc-meta">Revisi: <strong id="input-doc-rev">02</strong></div>
+          <div class="doc-meta">Tanggal Efektif: <strong id="input-doc-date">04 Maret 2024</strong></div>
+        </div>
+      </div>
+
+      <!-- Action Guidance Alert -->
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:0.65rem 1rem; margin-bottom:1.25rem; font-size:0.8rem; color:#1e40af; display:flex; align-items:center; gap:0.5rem;">
+        <span>💡</span>
+        <div>
+          <strong>Petunjuk Pengisian:</strong> Beri tanda <strong>√</strong> jika bersih dan berfungsi dengan baik. Beri tanda <strong>×</strong> jika kondisi peralatan rusak / kotor, dan segera laporkan jumlah alat rusak ke Leader.
+        </div>
+      </div>
+
+      <!-- Checklist Items Container -->
+      <div id="checklist-items-container" class="checklist-container">
+        <!-- Rendered by app.js -->
+      </div>
+
+      <!-- Signatures & Verification Section -->
+      <div class="verification-card">
+        <h3 style="font-size:0.95rem; color:#0f172a; margin-bottom:0.75rem;">Paraf & Verifikasi Dokumen</h3>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <label class="filter-label" for="operator-name-input">Nama Operator Produksi *</label>
+            <input type="text" id="operator-name-input" class="form-input" style="width:100%;" placeholder="Contoh: Budi Santoso" value="Budi Santoso">
+          </div>
+          <div>
+            <label class="filter-label" for="leader-name-input">Nama Production Leader</label>
+            <input type="text" id="leader-name-input" class="form-input" style="width:100%;" placeholder="Contoh: Hendro Wijaya" value="Hendro Wijaya">
+          </div>
+        </div>
+
+        <div class="signatures-grid">
+          <!-- Operator Signature -->
+          <div class="signature-box">
+            <div class="sig-title">
+              <span>Paraf Operator (Produksi)</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="clearSignature('operator')">Hapus</button>
+            </div>
+            <canvas id="op-sig-canvas" class="sig-canvas"></canvas>
+            <div style="font-size:0.7rem; color:#64748b; margin-top:4px;">Goreskan tanda tangan / paraf pada kotak di atas.</div>
+          </div>
+
+          <!-- Leader Signature -->
+          <div class="signature-box">
+            <div class="sig-title">
+              <span>Mengetahui Production Leader</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="clearSignature('leader')">Hapus</button>
+            </div>
+            <canvas id="ldr-sig-canvas" class="sig-canvas"></canvas>
+            <div style="font-size:0.7rem; color:#64748b; margin-top:4px;">Paraf verifikasi saat supervisi atau operan shift.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:1rem; display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:#334155;">
+          <input type="checkbox" id="leader-verified-check">
+          <label for="leader-verified-check">Laporan telah ditinjau dan disetujui oleh Production Leader</label>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <label class="filter-label" for="checklist-notes-input">Catatan Tambahan / Handover Shift (Opsional)</label>
+          <textarea id="checklist-notes-input" class="form-textarea" style="width:100%; height:60px;" placeholder="Catatan kondisi ruangan atau pesan untuk shift berikutnya..."></textarea>
+        </div>
+
+        <!-- Submit Button -->
+        <div style="margin-top:1.25rem; display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" class="btn btn-outline" onclick="switchTab('dashboard')">Batal</button>
+          <button type="button" class="btn btn-primary" style="padding:0.75rem 1.75rem; font-size:0.95rem;" onclick="submitChecklistForm()">
+            💾 Simpan & Kirim Laporan
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: FORMAT SOP RESMI (MATRIX BULANAN) -->
+    <section id="tab-matrix" class="tab-pane">
+      <div class="section-header no-print">
+        <div>
+          <h2 class="section-title">Format Formulir Standar SOP Resmi (Matrix Bulanan)</h2>
+          <p class="section-desc">Tampilan formulir fisik ISO/SOP resmi sesuai template PT Berkat Cahaya Novena untuk audit dan cetak fisik.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-primary btn-sm" onclick="window.print()">
+            <span>🖨️</span> Cetak / Simpan PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Controls for Matrix -->
+      <div class="filter-bar no-print">
+        <div class="filter-group">
+          <label class="filter-label" for="matrix-room-select">Pilih Formulir Ruangan</label>
+          <select id="matrix-room-select" class="form-select" onchange="renderSopMatrix()">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label" for="matrix-month-input">Periode Bulan</label>
+          <input type="month" id="matrix-month-input" class="form-input" value="2026-10" onchange="renderSopMatrix()">
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label" for="matrix-shift-select">Shift Operasional</label>
+          <select id="matrix-shift-select" class="form-select" onchange="renderSopMatrix()">
+            <option value="Shift 1">Shift 1</option>
+            <option value="Shift 2">Shift 2</option>
+            <option value="Shift 3">Shift 3</option>
+          </select>
+        </div>
+
+        <div style="align-self:flex-end;">
+          <button class="btn btn-outline" onclick="renderSopMatrix()">
+            <span>🔍</span> Tampilkan
+          </button>
+        </div>
+      </div>
+
+      <!-- Render Area for Official Matrix Table -->
+      <div id="matrix-render-area">
+        <!-- Rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- TAB 4: LOG TINDAKAN KOREKTIF (CORRECTIVE ACTION) -->
+    <section id="tab-corrective" class="tab-pane">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Log & Pelacakan Tindakan Korektif (Corrective Action)</h2>
+          <p class="section-desc">Eskalasi pelaporan peralatan rusak kepada Leader serta pencatatan tindakan penukaran unit baru.</p>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="renderCorrectiveActions()">
+          <span>🔄</span> Segarkan Log
+        </button>
+      </div>
+
+      <div id="corrective-content">
+        <!-- Rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- TAB 5: PENGINGAT & PENGATURAN -->
+    <section id="tab-settings" class="tab-pane">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Konfigurasi Pengingat & Dukungan Operasional</h2>
+          <p class="section-desc">Pengaturan alarm pengingat shift, audio nada pengingat, dan status sinkronisasi offline-first.</p>
+        </div>
+      </div>
+
+      <div id="settings-content">
+        <!-- Rendered by app.js -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Supabase Cloud Client Library & Config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config.js"></script>
+
+  <!-- Application Script -->
+  <script src="/app.js"></script>
+  <script>
+    // Set initial date in input field to today
+    document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
+  </script>
+</body>
+</html>
